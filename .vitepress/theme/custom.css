@@ -1,0 +1,56 @@
+/* Marca Giftback: navy #1a1a2e + accent #e94560 (mesmos do painel/Swagger). */
+:root {
+  --vp-c-brand-1: #e94560;
+  --vp-c-brand-2: #c73350;
+  --vp-c-brand-3: #f06a80;
+  --vp-c-brand-soft: rgba(233, 69, 96, 0.14);
+  /* Botões com contraste suficiente para texto branco. */
+  --vp-button-brand-bg: #e94560;
+  --vp-button-brand-hover-bg: #c73350;
+  --vp-button-brand-active-bg: #a82843;
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #1a1a2e 30%, #e94560);
+}
+
+.dark {
+  --vp-c-brand-1: #f06a80;
+  --vp-c-brand-2: #e94560;
+  --vp-c-brand-3: #c73350;
+  --vp-c-brand-soft: rgba(240, 106, 128, 0.16);
+  --vp-button-brand-bg: #c73350;
+  --vp-button-brand-hover-bg: #e94560;
+  --vp-button-brand-active-bg: #a82843;
+  /* No dark o navy desaparece no fundo: gradiente claro → vermelho da marca. */
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #ffd0d9 10%, #e94560 90%);
+}
+
+/* Diagramas com respiro e centralizados. */
+.mermaid {
+  margin: 24px 0;
+  display: flex;
+  justify-content: center;
+}
+
+/* Placeholder da página de referência enquanto o bundle do Scalar carrega. */
+.reference-loading {
+  padding: 120px 24px;
+  text-align: center;
+  color: var(--vp-c-text-2);
+}
+
+.reference-loading__spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto 16px;
+  border: 3px solid var(--vp-c-brand-soft);
+  border-top-color: var(--vp-c-brand-1);
+  border-radius: 50%;
+  animation: reference-spin 0.9s linear infinite;
+}
+
+@keyframes reference-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
