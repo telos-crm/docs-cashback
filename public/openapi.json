@@ -1,3 +1,1936 @@
 {
-  "placeholder": true
+    "openapi": "3.0.0",
+    "info": {
+        "title": "Telos Giftback API",
+        "description": "API completa para gerenciamento de programa de fidelidade e cashback",
+        "contact": {
+            "name": "Telos CRM - Suporte Técnico",
+            "email": "diego.dias@teloscrm.com.br"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "https://giftback.teloscrm.com.br/api/v1",
+            "description": "Produção"
+        },
+        {
+            "url": "https://giftback.hom.teloscrm.com.br/api/v1",
+            "description": "Homologação"
+        }
+    ],
+    "paths": {
+        "/auth": {
+            "post": {
+                "tags": [
+                    "Autenticação"
+                ],
+                "summary": "Autenticar e gerar token JWT",
+                "description": "Autentica usando client_id (CNPJ) e client_secret (API Key) e retorna tokens JWT",
+                "operationId": "167371a3167c6f6788d7d3faf19f0e41",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "username",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "username": {
+                                        "description": "CNPJ da loja sem máscara",
+                                        "type": "string",
+                                        "example": "12345678000190"
+                                    },
+                                    "password": {
+                                        "description": "API Key da loja",
+                                        "type": "string",
+                                        "example": "as214d1237155b6b31f1690c1b59132132"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Autenticação bem-sucedida",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "access_token": {
+                                            "description": "Token JWT de acesso",
+                                            "type": "string"
+                                        },
+                                        "access_token_expires_in": {
+                                            "type": "integer",
+                                            "example": 3600
+                                        },
+                                        "refresh_token": {
+                                            "description": "Token JWT para renovação",
+                                            "type": "string"
+                                        },
+                                        "refresh_token_expires_in": {
+                                            "type": "integer",
+                                            "example": 604800
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Credenciais inválidas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid credentials"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/refresh": {
+            "post": {
+                "tags": [
+                    "Autenticação"
+                ],
+                "summary": "Renovar token JWT",
+                "description": "Renova o token de acesso usando o refresh token",
+                "operationId": "d38c6d18de419782801e0c51d6ce52bf",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "refresh_token"
+                                ],
+                                "properties": {
+                                    "refresh_token": {
+                                        "description": "Refresh token JWT",
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Token renovado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "access_token": {
+                                            "description": "Novo token JWT de acesso",
+                                            "type": "string"
+                                        },
+                                        "access_token_expires_in": {
+                                            "type": "integer",
+                                            "example": 3600
+                                        },
+                                        "refresh_token": {
+                                            "description": "Novo refresh token",
+                                            "type": "string"
+                                        },
+                                        "refresh_token_expires_in": {
+                                            "type": "integer",
+                                            "example": 604800
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Refresh token inválido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid refresh token"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/bonus/balance": {
+            "post": {
+                "tags": [
+                    "Consulta dos bônus"
+                ],
+                "summary": "Consultar saldo do cliente",
+                "description": "Retorna o saldo total de bônus do cliente (disponível + bloqueado) e o valor mínimo de compra para uso total. Diferente de /bonus/available, esta rota não exige dados de venda — é destinada a consulta livre (ex.: vendedor abre a ficha do cliente antes do caixa).",
+                "operationId": "d5a77e773ef80a06b418844e7083bed6",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "cpf"
+                                ],
+                                "properties": {
+                                    "cpf": {
+                                        "description": "CPF do cliente (apenas dígitos)",
+                                        "type": "string",
+                                        "example": "12345678900"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Saldo consultado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "bonus_balance": {
+                                                    "description": "Bônus disponível (já liberado pra uso)",
+                                                    "type": "number",
+                                                    "example": 50
+                                                },
+                                                "bonus_blocked": {
+                                                    "description": "Bônus bloqueado (aguardando data de disponibilidade)",
+                                                    "type": "number",
+                                                    "example": 20
+                                                },
+                                                "bonus_total": {
+                                                    "description": "Soma de disponível + bloqueado",
+                                                    "type": "number",
+                                                    "example": 70
+                                                },
+                                                "bonus_minimum_purchase": {
+                                                    "description": "Valor mínimo de compra para usar bônus",
+                                                    "type": "number",
+                                                    "example": 100
+                                                },
+                                                "bonus_max_use_percent": {
+                                                    "description": "% máximo do valor da compra que pode ser pago com bônus",
+                                                    "type": "number",
+                                                    "example": 30
+                                                },
+                                                "bonus_full_use_purchase": {
+                                                    "description": "Valor de compra necessário para consumir 100% do bônus disponível",
+                                                    "type": "number",
+                                                    "example": 166.67
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "CPF inválido"
+                    },
+                    "404": {
+                        "description": "Cliente não encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/bonus/available": {
+            "post": {
+                "tags": [
+                    "Consulta dos bônus"
+                ],
+                "summary": "Consultar saldo disponível",
+                "description": "Retorna o saldo de bônus disponível do cliente. IMPORTANTE: O campo bonus_ids retorna TODOS os IDs de bônus disponíveis do cliente. Ao usar bônus via /bonus/submit, o ERP deve enviar todos os bonus_ids recebidos, pois a regra de negócio é 'não há saldo restante' - o cliente usa 100% do bônus disponível ou perde o que sobrar.<br><br><b>Contrato dos items:</b><br>• <b>value_of</b> = preço de tabela (cheio)<br>• <b>value_per</b> = preço efetivo na linha após desconto de produto/promoção<br>• Promoções de produto devem vir como value_of diferente de value_per.<br><br><b>Como o parâmetro usa_bonus_produtos_promocao afeta a resposta:</b><br>• <b>true</b> (default): cliente pode usar bônus sobre o valor total da compra (value).<br>• <b>false</b>: cliente só pode usar bônus em até percentual_maximo_uso × Σ value_per dos itens cheios (value_of == value_per). Se nenhum item cheio, bonus_available = 0.",
+                "operationId": "3d38800f6778caca37f802e2746b59db",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id",
+                                    "value",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "description": "ID criptografado do usuário",
+                                        "type": "string",
+                                        "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                    },
+                                    "value": {
+                                        "description": "Valor total da compra (subtotal dos items)",
+                                        "type": "number",
+                                        "example": 100
+                                    },
+                                    "items": {
+                                        "description": "Lista de produtos da compra",
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "sku": {
+                                                    "type": "string",
+                                                    "example": "123-ABC-456"
+                                                },
+                                                "value_of": {
+                                                    "description": "Preço original do produto",
+                                                    "type": "number",
+                                                    "example": 200
+                                                },
+                                                "value_per": {
+                                                    "description": "Preço com desconto (se igual a value_of, não tem desconto)",
+                                                    "type": "number",
+                                                    "example": 180
+                                                },
+                                                "quantity": {
+                                                    "type": "number",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Saldo consultado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "bonus_has": {
+                                                    "description": "Se o cliente possui bônus",
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "bonus_balance": {
+                                                    "description": "Saldo total de bônus do cliente",
+                                                    "type": "number",
+                                                    "example": 50
+                                                },
+                                                "bonus_available": {
+                                                    "description": "Valor de bônus utilizável nesta compra (limitado a 30% do subtotal)",
+                                                    "type": "number",
+                                                    "example": 30
+                                                },
+                                                "bonus_accumulate_flag": {
+                                                    "description": "Se pode usar bônus nesta compra",
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "bonus_accumulate_question": {
+                                                    "description": "Mensagem para exibir ao operador",
+                                                    "type": "string",
+                                                    "example": "O cliente tem bonus de R$ 30,00 disponivel. Deseja utilizar agora? (Este cliente está perdendo R$ 20,00 de bônus!)"
+                                                },
+                                                "bonus_ids": {
+                                                    "description": "TODOS os IDs de bônus disponíveis - enviar todos no /bonus/submit para uso",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "nR1+ENnNxiJqmBr7iBMI+A=="
+                                                    }
+                                                },
+                                                "use_sku_rescue": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                },
+                                                "items": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "sku": {
+                                                                "type": "string",
+                                                                "example": "123-ABC-456"
+                                                            },
+                                                            "value_of": {
+                                                                "type": "number",
+                                                                "example": 200
+                                                            },
+                                                            "value_per": {
+                                                                "type": "number",
+                                                                "example": 180
+                                                            },
+                                                            "quantity": {
+                                                                "type": "number",
+                                                                "example": 1
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/bonus/campaigns": {
+            "post": {
+                "tags": [
+                    "Consulta das campanhas"
+                ],
+                "summary": "Calcular bônus de uma compra",
+                "description": "Calcula o bônus que seria gerado para uma compra específica com base nas campanhas ativas.<br><br><b>Contrato dos totals (obrigatório):</b><br>• <b>subtotal</b> = Σ (value_per × quantity) — soma das linhas após desconto de produto/promoção cadastrada<br>• <b>total</b> = subtotal + fee + taxes − crm_discounts − other_discounts<br>• <b>crm_discounts</b> = valor pago com bônus / cashback usado<br>• <b>other_discounts</b> = descontos negociados na hora (vendedor, meio de pagamento, cupom, frete) — NÃO usar pra promoção de produto cadastrada<br>• Promoções de produto cadastradas devem ser marcadas como value_of diferente de value_per no item.<br>• <b>Proteção defensiva</b>: o backend valida que Σ (value_per × quantity) == subtotal e que subtotal − crm − other == total. Quando há violação (ex.: desconto duplicado entre subtotal e crm_discounts), a base do bônus é capada em total × percentual da campanha, evitando inflar o crédito.<br><br><b>Como o parâmetro bonificar_produtos_promocao afeta o cálculo:</b><br>• <b>true</b> (default): bônus é calculado sobre totals.total.<br>• <b>false</b>: apenas itens com value_of == value_per são elegíveis; descontos globais são distribuídos proporcionalmente. Fórmula: base = total × min(1.0, Σ value_per dos elegíveis / subtotal).",
+                "operationId": "03c66d8255893e0e758008cff222d521",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "sales_type",
+                                    "first_purchase",
+                                    "user_id",
+                                    "items",
+                                    "delivery",
+                                    "payments",
+                                    "totals"
+                                ],
+                                "properties": {
+                                    "sales_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "IN_STORE",
+                                            "ONLINE"
+                                        ],
+                                        "example": "IN_STORE"
+                                    },
+                                    "first_purchase": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "user_id": {
+                                        "type": "string",
+                                        "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "sku": {
+                                                    "type": "string",
+                                                    "example": "ABC-12345-S-BL"
+                                                },
+                                                "value_of": {
+                                                    "type": "number",
+                                                    "example": 100
+                                                },
+                                                "value_per": {
+                                                    "type": "number",
+                                                    "example": 80
+                                                },
+                                                "quantity": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "delivery": {
+                                        "properties": {
+                                            "type": {
+                                                "type": "string",
+                                                "example": "STANDARD"
+                                            },
+                                            "fee": {
+                                                "type": "number",
+                                                "example": 0
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "payments": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "example": "855423"
+                                                },
+                                                "system_id": {
+                                                    "type": "string",
+                                                    "example": "10"
+                                                },
+                                                "system_name": {
+                                                    "type": "string",
+                                                    "example": "VISA"
+                                                },
+                                                "type": {
+                                                    "type": "string",
+                                                    "example": "CREDIT_CARD"
+                                                },
+                                                "value": {
+                                                    "type": "number",
+                                                    "example": 56.2
+                                                },
+                                                "installments": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "totals": {
+                                        "properties": {
+                                            "fee": {
+                                                "type": "number",
+                                                "example": 5
+                                            },
+                                            "taxes": {
+                                                "type": "number",
+                                                "example": 1.2
+                                            },
+                                            "subtotal": {
+                                                "type": "number",
+                                                "example": 106.2
+                                            },
+                                            "crm_discounts": {
+                                                "type": "number",
+                                                "example": 30
+                                            },
+                                            "other_discounts": {
+                                                "type": "number",
+                                                "example": 20
+                                            },
+                                            "total": {
+                                                "type": "number",
+                                                "example": 56.2
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Campanhas aplicáveis encontradas",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 20628
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Fidelidade"
+                                                    },
+                                                    "subtitle": {
+                                                        "type": "string",
+                                                        "example": ""
+                                                    },
+                                                    "type": {
+                                                        "type": "string",
+                                                        "example": "fidelidade"
+                                                    },
+                                                    "text": {
+                                                        "type": "string",
+                                                        "example": "R$ 30,00 para a próxima compra"
+                                                    },
+                                                    "value": {
+                                                        "type": "number",
+                                                        "example": 30
+                                                    },
+                                                    "start_date": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2024-08-14 00:00:00"
+                                                    },
+                                                    "end_date": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2024-09-13 23:59:59"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/bonus/submit": {
+            "post": {
+                "tags": [
+                    "Finalização da compra"
+                ],
+                "summary": "Finalizar compra e gerar bônus",
+                "description": "Processa uma venda completa: usa bônus existentes (se solicitado) e gera novo bônus. REGRAS IMPORTANTES: 1) Se bonus_ids for enviado (não vazio), o cliente QUER usar bônus - o backend buscará TODOS os bônus disponíveis e processará (validação dupla). 2) Se bonus_ids for vazio [], o cliente NÃO quer usar bônus (quer acumular). 3) Regra 'sem saldo restante': ao usar qualquer bônus, todos são consumidos/perdidos. 4) Créditos de R$0 NÃO são gerados.<br><br><b>Contrato dos totals (obrigatório):</b><br>• <b>subtotal</b> = Σ (value_per × quantity) — soma das linhas após desconto de produto/promoção cadastrada<br>• <b>total</b> = subtotal + fee + taxes − crm_discounts − other_discounts<br>• <b>crm_discounts</b> = valor pago com bônus / cashback usado<br>• <b>other_discounts</b> = descontos negociados na hora (vendedor, meio de pagamento, cupom, frete) — NÃO usar pra promoção de produto cadastrada<br>• Promoções de produto cadastradas devem ser marcadas como value_of diferente de value_per no item.<br>• <b>Proteção defensiva</b>: o backend valida Σ (value_per × quantity) == subtotal e a equação dos totals. Quando há violação, a base é capada em total × percentual da campanha.<br><br><b>Como o parâmetro bonificar_produtos_promocao afeta o bônus gerado:</b><br>• <b>true</b> (default): bônus é calculado sobre totals.total.<br>• <b>false</b>: somente itens com value_of == value_per geram bônus. Descontos globais são distribuídos proporcionalmente. Fórmula: base = total × min(1.0, Σ value_per dos elegíveis / subtotal).",
+                "operationId": "4a1f2cd1a31e018bace0ad8c6bf3ba87",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id",
+                                    "pin_master",
+                                    "internal_order_id",
+                                    "items",
+                                    "totals"
+                                ],
+                                "properties": {
+                                    "sales_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "IN_STORE",
+                                            "ONLINE"
+                                        ],
+                                        "example": "IN_STORE"
+                                    },
+                                    "user_id": {
+                                        "description": "ID criptografado do usuário",
+                                        "type": "string",
+                                        "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                    },
+                                    "campaign_id": {
+                                        "description": "ID da campanha para geração de bônus (obtido em /bonus/campaigns)",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "pin_master": {
+                                        "type": "boolean",
+                                        "example": false
+                                    },
+                                    "seller_name": {
+                                        "description": "Nome do vendedor (opcional)",
+                                        "type": "string",
+                                        "example": "Leonardo Campos"
+                                    },
+                                    "seller_id": {
+                                        "description": "Código do vendedor no sistema de origem (opcional)",
+                                        "type": "string",
+                                        "example": "V-001"
+                                    },
+                                    "bonus_ids": {
+                                        "description": "IDs dos bônus a utilizar (obtidos em /bonus/available). Envie TODOS os IDs recebidos ou array vazio [] se não quiser usar.",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "nR1+ENnNxiJqmBr7iBMI+A==",
+                                            "+6Z15u6ChtC8QTp8hylURA=="
+                                        ]
+                                    },
+                                    "invoice": {
+                                        "type": "string",
+                                        "example": "NF-10050"
+                                    },
+                                    "terminal": {
+                                        "type": "string",
+                                        "example": "5"
+                                    },
+                                    "internal_order_id": {
+                                        "description": "ID único do pedido no ERP",
+                                        "type": "string",
+                                        "example": "500425"
+                                    },
+                                    "referential_order_id": {
+                                        "type": "string",
+                                        "example": "ABC100"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "sku": {
+                                                    "type": "string",
+                                                    "example": "ABC-12345-S-BL"
+                                                },
+                                                "value_of": {
+                                                    "description": "Preço original",
+                                                    "type": "number",
+                                                    "example": 100
+                                                },
+                                                "value_per": {
+                                                    "description": "Preço com desconto",
+                                                    "type": "number",
+                                                    "example": 80
+                                                },
+                                                "quantity": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "delivery": {
+                                        "properties": {
+                                            "type": {
+                                                "type": "string",
+                                                "example": "STANDARD"
+                                            },
+                                            "fee": {
+                                                "type": "number",
+                                                "example": 0
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "payments": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "example": "855423"
+                                                },
+                                                "system_id": {
+                                                    "type": "string",
+                                                    "example": "10"
+                                                },
+                                                "system_name": {
+                                                    "type": "string",
+                                                    "example": "VISA"
+                                                },
+                                                "type": {
+                                                    "type": "string",
+                                                    "example": "CREDIT_CARD"
+                                                },
+                                                "value": {
+                                                    "type": "number",
+                                                    "example": 56.2
+                                                },
+                                                "installments": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "totals": {
+                                        "properties": {
+                                            "fee": {
+                                                "type": "number",
+                                                "example": 5
+                                            },
+                                            "taxes": {
+                                                "type": "number",
+                                                "example": 1.2
+                                            },
+                                            "subtotal": {
+                                                "description": "Valor ANTES de descontos - usado para validar valor mínimo",
+                                                "type": "number",
+                                                "example": 106.2
+                                            },
+                                            "crm_discounts": {
+                                                "description": "Valor do bônus utilizado",
+                                                "type": "number",
+                                                "example": 30
+                                            },
+                                            "other_discounts": {
+                                                "type": "number",
+                                                "example": 20
+                                            },
+                                            "total": {
+                                                "description": "Valor final pago pelo cliente",
+                                                "type": "number",
+                                                "example": 56.2
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Venda processada com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "description": "'Successfully generated bonus' se gerou bônus, 'Sale processed without bonus generation' se não gerou",
+                                            "type": "string",
+                                            "example": "Successfully generated bonus"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "bonus_id": {
+                                                    "description": "ID do bônus gerado (null se não gerou)",
+                                                    "type": "string",
+                                                    "example": "6m6AU/VuGMZablszkpr8/w==",
+                                                    "nullable": true
+                                                },
+                                                "order_id": {
+                                                    "description": "ID da ordem (null se não gerou bônus)",
+                                                    "type": "string",
+                                                    "example": "N1zy1v2v+p4BdT/TyHCRAg==",
+                                                    "nullable": true
+                                                },
+                                                "bonus_sku": {
+                                                    "description": "SKUs que geraram bônus (vazio se não gerou)",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "example": [
+                                                        "ZVBycxzxb+p4BaTTyHSSAg=="
+                                                    ]
+                                                },
+                                                "bonus_generated": {
+                                                    "description": "Indica se foi gerado novo bônus",
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "bonus_value": {
+                                                    "description": "Valor do bônus gerado (0 se não gerou)",
+                                                    "type": "number",
+                                                    "example": 5
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Erro de validação - não foi possível usar bônus",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Não foi possível utilizar o bônus"
+                                        },
+                                        "error": {
+                                            "properties": {
+                                                "code": {
+                                                    "type": "string",
+                                                    "example": "BONUS_VALUE_MINIMUM_NOT_MET"
+                                                },
+                                                "detail": {
+                                                    "type": "string",
+                                                    "example": "Valor mínimo de compra para usar bônus: R$ 50,00"
+                                                },
+                                                "valor_compra": {
+                                                    "type": "number",
+                                                    "example": 40
+                                                },
+                                                "valor_minimo": {
+                                                    "type": "number",
+                                                    "example": 50
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/pin/send": {
+            "post": {
+                "tags": [
+                    "Inicialização"
+                ],
+                "summary": "Enviar PIN para cliente",
+                "description": "Gera e envia PIN via SMS para validação de transação",
+                "operationId": "b2f377b248f0e0e1ee834052118b0fcd",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "customer",
+                                    "gross_value",
+                                    "items"
+                                ],
+                                "properties": {
+                                    "seller_name": {
+                                        "description": "Nome do vendedor (opcional)",
+                                        "type": "string",
+                                        "example": "Leonardo Campos"
+                                    },
+                                    "seller_id": {
+                                        "description": "Código do vendedor no sistema de origem (opcional)",
+                                        "type": "string",
+                                        "example": "V-001"
+                                    },
+                                    "customer": {
+                                        "properties": {
+                                            "country_code": {
+                                                "type": "integer",
+                                                "example": 55
+                                            },
+                                            "name": {
+                                                "type": "string",
+                                                "example": "Diego Dias"
+                                            },
+                                            "phone": {
+                                                "type": "string",
+                                                "example": "11999998888"
+                                            },
+                                            "email": {
+                                                "type": "string",
+                                                "example": "diego.dias@test.com.br"
+                                            },
+                                            "birth": {
+                                                "type": "string",
+                                                "example": "06/12/1991"
+                                            },
+                                            "gender": {
+                                                "type": "string",
+                                                "example": "M"
+                                            },
+                                            "document_type": {
+                                                "type": "string",
+                                                "example": "CPF"
+                                            },
+                                            "document_number": {
+                                                "type": "string",
+                                                "example": "12345678901"
+                                            },
+                                            "category_custom": {
+                                                "type": "string",
+                                                "example": "Normal"
+                                            },
+                                            "custom_data": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "gross_value": {
+                                        "type": "number",
+                                        "example": 100
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "sku": {
+                                                    "type": "string",
+                                                    "example": "ABC-12345-S-BL"
+                                                },
+                                                "value_of": {
+                                                    "type": "number",
+                                                    "example": 100
+                                                },
+                                                "value_per": {
+                                                    "type": "number",
+                                                    "example": 80
+                                                },
+                                                "quantity": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "PIN enviado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Pin successfully sent"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user_id": {
+                                                    "type": "string",
+                                                    "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                                },
+                                                "request_pin": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "text_pin": {
+                                                    "type": "string",
+                                                    "example": "TELOS Giftback: PIN 3885 - Ao passar pin você concorda com https://www.telosdigital.com.br/termos-uso"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/pin/validate": {
+            "post": {
+                "tags": [
+                    "Inicialização"
+                ],
+                "summary": "Validar PIN do cliente",
+                "description": "Valida o PIN informado pelo cliente",
+                "operationId": "ed3eac2b1c2e7a9e4b0e223728d87081",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id",
+                                    "pin"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "string",
+                                        "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                    },
+                                    "pin": {
+                                        "type": "string",
+                                        "example": "3885"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "PIN validado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user_id": {
+                                                    "type": "string",
+                                                    "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                                },
+                                                "valid_pin": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                },
+                                                "pin_master": {
+                                                    "type": "boolean",
+                                                    "example": false
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/pin/resend": {
+            "post": {
+                "tags": [
+                    "Inicialização"
+                ],
+                "summary": "Reenviar PIN para cliente",
+                "description": "Reenvia o PIN atual ou gera um novo PIN para o cliente",
+                "operationId": "59fc13d67fdb7835bf4af937dbd269c4",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "user_id"
+                                ],
+                                "properties": {
+                                    "user_id": {
+                                        "type": "string",
+                                        "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "PIN reenviado com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user_id": {
+                                                    "type": "string",
+                                                    "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                                },
+                                                "text_pin": {
+                                                    "type": "string",
+                                                    "example": "TELOS Giftback: PIN 3575 - Reenvio solicitado - https://www.telosdigital.com.br/termos-uso"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/sales/total": {
+            "post": {
+                "tags": [
+                    "Finalização da compra"
+                ],
+                "summary": "Contabilizar venda realizada",
+                "description": "Contabiliza todas as vendas realizadas em uma loja, mesmo as que não passaram pelo fluxo de bônus. Este endpoint deve ser chamado APÓS o /bonus/submit para registrar a venda completa.",
+                "operationId": "16661df74124ecca0f74283563a953d4",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "internal_order_id",
+                                    "customer",
+                                    "totals"
+                                ],
+                                "properties": {
+                                    "sales_type": {
+                                        "type": "string",
+                                        "enum": [
+                                            "IN_STORE",
+                                            "ONLINE"
+                                        ],
+                                        "example": "IN_STORE"
+                                    },
+                                    "seller_name": {
+                                        "description": "Nome do vendedor (opcional)",
+                                        "type": "string",
+                                        "example": "Leonardo Campos"
+                                    },
+                                    "seller_id": {
+                                        "description": "Código do vendedor no sistema de origem (opcional)",
+                                        "type": "string",
+                                        "example": "V-001"
+                                    },
+                                    "generated_bonus_ids": {
+                                        "description": "IDs dos bônus gerados pelo /bonus/submit. Envie array vazio [] se não foi gerado bônus. Valores null são ignorados automaticamente.",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "example": [
+                                            "6m6AU/VuGMZablszkpr8/w=="
+                                        ]
+                                    },
+                                    "internal_order_id": {
+                                        "type": "string",
+                                        "example": "500425"
+                                    },
+                                    "referential_order_id": {
+                                        "type": "string",
+                                        "example": "ABC100"
+                                    },
+                                    "invoice": {
+                                        "type": "string",
+                                        "example": "NF-10050"
+                                    },
+                                    "terminal": {
+                                        "type": "string",
+                                        "example": "5"
+                                    },
+                                    "customer": {
+                                        "properties": {
+                                            "country_code": {
+                                                "type": "integer",
+                                                "example": 55
+                                            },
+                                            "phone": {
+                                                "type": "string",
+                                                "example": "11999998888"
+                                            },
+                                            "name": {
+                                                "type": "string",
+                                                "example": "Ricardo Sales"
+                                            },
+                                            "email": {
+                                                "type": "string",
+                                                "example": "ricardo.sales@123.com.br"
+                                            },
+                                            "birth": {
+                                                "type": "string",
+                                                "example": "28/10/1990"
+                                            },
+                                            "gender": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "M",
+                                                    "F"
+                                                ],
+                                                "example": "M"
+                                            },
+                                            "document_type": {
+                                                "type": "string",
+                                                "enum": [
+                                                    "CPF",
+                                                    "CNPJ"
+                                                ],
+                                                "example": "CPF"
+                                            },
+                                            "document_number": {
+                                                "type": "string",
+                                                "example": "64918487017"
+                                            },
+                                            "category_custom": {
+                                                "type": "string",
+                                                "example": "Bronze"
+                                            },
+                                            "custom_data": {
+                                                "type": "object",
+                                                "example": {
+                                                    "key": "value"
+                                                }
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "sku": {
+                                                    "type": "string",
+                                                    "example": "ABC-12345-S-BL"
+                                                },
+                                                "value_of": {
+                                                    "type": "number",
+                                                    "example": 100
+                                                },
+                                                "value_per": {
+                                                    "type": "number",
+                                                    "example": 80
+                                                },
+                                                "quantity": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "delivery": {
+                                        "properties": {
+                                            "type": {
+                                                "type": "string",
+                                                "example": "STANDARD"
+                                            },
+                                            "fee": {
+                                                "type": "number",
+                                                "example": 0
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "payments": {
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "example": "855423"
+                                                },
+                                                "system_id": {
+                                                    "type": "string",
+                                                    "example": "10"
+                                                },
+                                                "system_name": {
+                                                    "type": "string",
+                                                    "example": "VISA"
+                                                },
+                                                "type": {
+                                                    "type": "string",
+                                                    "example": "CREDIT_CARD"
+                                                },
+                                                "value": {
+                                                    "type": "number",
+                                                    "example": 56.2
+                                                },
+                                                "installments": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "totals": {
+                                        "properties": {
+                                            "fee": {
+                                                "type": "number",
+                                                "example": 5
+                                            },
+                                            "taxes": {
+                                                "type": "number",
+                                                "example": 1.2
+                                            },
+                                            "subtotal": {
+                                                "type": "number",
+                                                "example": 106.2
+                                            },
+                                            "crm_discounts": {
+                                                "type": "number",
+                                                "example": 30
+                                            },
+                                            "other_discounts": {
+                                                "type": "number",
+                                                "example": 20
+                                            },
+                                            "total": {
+                                                "type": "number",
+                                                "example": 56.2
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Venda contabilizada com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "sale_id": {
+                                                    "type": "string",
+                                                    "example": "22a87c-01d4-4da5-81de-b43acb052332"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/sales/cancel": {
+            "post": {
+                "tags": [
+                    "Cancelar venda"
+                ],
+                "summary": "Cancelar venda",
+                "description": "Cancela uma venda e estorna o bônus correspondente",
+                "operationId": "91c46042aa205885dfc020044717c4e9",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "internal_order_id"
+                                ],
+                                "properties": {
+                                    "internal_order_id": {
+                                        "type": "string",
+                                        "example": "TXN123456789"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Cliente desistiu da compra"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Venda cancelada com sucesso",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Sale successfully canceled"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "transaction_id": {
+                                                    "type": "string",
+                                                    "example": "TXN123456789"
+                                                },
+                                                "bonus_refunded": {
+                                                    "type": "number",
+                                                    "example": 9
+                                                },
+                                                "canceled_at": {
+                                                    "type": "string",
+                                                    "example": "2024-01-15T14:30:00Z"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/user/verify": {
+            "post": {
+                "tags": [
+                    "Inicialização"
+                ],
+                "summary": "Verificar usuário por CPF",
+                "description": "Verifica se usuário existe no sistema e retorna informações básicas",
+                "operationId": "46a9cf90e3aae037f94e6474771a741c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "cpf"
+                                ],
+                                "properties": {
+                                    "cpf": {
+                                        "description": "CPF do usuário (apenas números)",
+                                        "type": "string",
+                                        "example": "12345678901"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Usuário encontrado ou criado com sucesso",
+                        "headers": {
+                            "Request-Hash": {
+                                "description": "Hash SHA256 do CPF + API Key",
+                                "schema": {
+                                    "type": "string",
+                                    "example": "94c9efbb6daaa86995263caf10cb4e17"
+                                }
+                            }
+                        },
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Success"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "user_id": {
+                                                    "type": "string",
+                                                    "example": "0zXtCRB91brXqq92ud5KqQ=="
+                                                },
+                                                "request_pin": {
+                                                    "type": "boolean",
+                                                    "example": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Dados inválidos",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "CPF inválido"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Token inválido",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Invalid Token"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "example": null,
+                                            "nullable": true
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ApiResponse": {
+                "properties": {
+                    "success": {
+                        "description": "Status da operação",
+                        "type": "boolean"
+                    },
+                    "message": {
+                        "description": "Mensagem de resposta",
+                        "type": "string"
+                    },
+                    "data": {
+                        "description": "Dados da resposta",
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "errors": {
+                        "description": "Erros de validação",
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Customer": {
+                "properties": {
+                    "id": {
+                        "description": "ID único do cliente",
+                        "type": "integer"
+                    },
+                    "nome": {
+                        "description": "Nome completo do cliente",
+                        "type": "string"
+                    },
+                    "email": {
+                        "description": "E-mail do cliente",
+                        "type": "string",
+                        "format": "email"
+                    },
+                    "documento": {
+                        "description": "CPF ou CNPJ do cliente",
+                        "type": "string"
+                    },
+                    "telefone": {
+                        "description": "Telefone de contato",
+                        "type": "string"
+                    },
+                    "data_nascimento": {
+                        "description": "Data de nascimento",
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "endereco": {
+                        "description": "Endereço completo",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "cidade": {
+                        "description": "Cidade",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "estado": {
+                        "description": "Estado (UF)",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "cep": {
+                        "description": "CEP",
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "saldo_pontos": {
+                        "description": "Saldo atual de pontos",
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "status": {
+                        "description": "Status do cliente",
+                        "type": "string",
+                        "enum": [
+                            "ativo",
+                            "inativo",
+                            "bloqueado"
+                        ]
+                    },
+                    "created_at": {
+                        "description": "Data de criação",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "description": "Data de atualização",
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Store": {
+                "properties": {
+                    "id": {
+                        "description": "ID único da loja",
+                        "type": "integer"
+                    },
+                    "nome": {
+                        "description": "Nome da loja",
+                        "type": "string"
+                    },
+                    "codigo": {
+                        "description": "Código identificador da loja",
+                        "type": "string"
+                    },
+                    "endereco": {
+                        "description": "Endereço da loja",
+                        "type": "string"
+                    },
+                    "telefone": {
+                        "description": "Telefone da loja",
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "Status da loja",
+                        "type": "string",
+                        "enum": [
+                            "ativa",
+                            "inativa"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "Product": {
+                "properties": {
+                    "id": {
+                        "description": "ID único do produto",
+                        "type": "integer"
+                    },
+                    "nome": {
+                        "description": "Nome do produto",
+                        "type": "string"
+                    },
+                    "codigo": {
+                        "description": "Código/SKU do produto",
+                        "type": "string"
+                    },
+                    "preco": {
+                        "description": "Preço unitário",
+                        "type": "number",
+                        "format": "float"
+                    },
+                    "categoria": {
+                        "description": "Categoria do produto",
+                        "type": "string"
+                    },
+                    "status": {
+                        "description": "Status do produto",
+                        "type": "string",
+                        "enum": [
+                            "ativo",
+                            "inativo"
+                        ]
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Autenticação",
+            "description": "Autenticação e renovação de tokens JWT"
+        },
+        {
+            "name": "Inicialização",
+            "description": "Operações relacionadas ao sistema de PIN para validação de transações"
+        },
+        {
+            "name": "Consulta dos bônus",
+            "description": "Operações relacionadas ao gerenciamento de bônus e recompensas"
+        },
+        {
+            "name": "Consulta das campanhas",
+            "description": "Busca de campanhas disponíveis"
+        },
+        {
+            "name": "Finalização da compra",
+            "description": "Operações relacionadas a finalização de compras e atribuição de bônus"
+        },
+        {
+            "name": "Cancelar venda",
+            "description": "Operações relacionadas ao cancelamento de vendas e estorno de bônus"
+        }
+    ]
 }
