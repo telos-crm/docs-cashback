@@ -29,4 +29,7 @@ npm run build      # .vitepress/dist
 - `cleanUrls: false`: GitHub Pages não faz rewrite de `/caminho` → `/caminho.html`.
   Ao migrar para servidores com rewrite (Worker/nginx), religar no config.
 - `base` do VitePress: default `/docs-cashback/` (servindo sob o github.io da org).
-  No corte para o domínio próprio, setar `DOCS_BASE=/` no workflow e mudar o CNAME.
+  No corte para o domínio próprio: criar a variável de repositório `DOCS_BASE` = `/`
+  (Settings → Secrets and variables → Actions → Variables), configurar o domínio em
+  Settings → Pages → Custom domain e rodar o workflow `Deploy docs`. O domínio fica nas
+  configurações do Pages: com deploy por Actions, arquivo `CNAME` no site é ignorado.

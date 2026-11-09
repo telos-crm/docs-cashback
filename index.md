@@ -23,7 +23,7 @@ features:
   - title: Seguro para repetir
     details: "Identifique cada venda pelo internal_order_id do seu ERP: repetir após um timeout não duplica bônus — a API responde 409 e você segue."
     link: /guia/erros
-  - title: Campanhas e estornos
-    details: "Veja quanto a compra acumula em cada campanha antes de fechar, e cancele a venda com estorno automático quando o cliente desistir."
-    link: /fluxos/cancelamento
+  - title: Trocas, devoluções e cancelamentos
+    details: "Ajuste o cashback quando o cliente troca ou devolve parte do pedido, e cancele a venda com estorno automático quando ele desiste."
+    link: /fluxos/troca-devolucao
 ---

@@ -9,9 +9,10 @@ import { defineConfig } from 'vitepress';
 // mermaid só quando a página tem diagrama.
 //
 // BASE configurável: no GitHub Pages o site vive em /docs-cashback/ (default).
-// No corte para o domínio próprio (ex.: docs-cashback.telosdigital.app.br),
-// setar DOCS_BASE=/ no workflow e a raiz volta a ser /.
-const BASE = process.env.DOCS_BASE ?? '/docs-cashback/';
+// Com domínio próprio, a variável DOCS_BASE do repositório (Settings → Secrets
+// and variables → Actions → Variables) vale "/" e a raiz volta a ser /.
+// `||` e não `??`: variável não definida chega do workflow como string vazia.
+const BASE = process.env.DOCS_BASE || '/docs-cashback/';
 
 export default defineConfig({
   base: BASE,
@@ -41,6 +42,7 @@ export default defineConfig({
           { text: 'Introdução e conceitos', link: '/guia/introducao' },
           { text: 'Primeiros passos', link: '/guia/primeiros-passos' },
           { text: 'Erros e novas tentativas', link: '/guia/erros' },
+          { text: 'Changelog', link: '/guia/changelog' },
         ],
       },
       {
@@ -48,6 +50,7 @@ export default defineConfig({
         items: [
           { text: 'Qual fluxo usar?', link: '/fluxos/' },
           { text: 'Fluxo de compra', link: '/fluxos/compra' },
+          { text: 'Troca e devolução parcial', link: '/fluxos/troca-devolucao' },
           { text: 'Cancelamento de venda', link: '/fluxos/cancelamento' },
           { text: 'Consulta de saldo', link: '/fluxos/consulta' },
         ],

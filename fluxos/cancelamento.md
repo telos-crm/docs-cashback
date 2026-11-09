@@ -1,7 +1,13 @@
 # Cancelamento de venda
 
 Cliente desistiu, devolução total ou pedido cancelado no ERP: o cancelamento
-estorna o bônus usado, cancela os SMS vinculados e desfaz o que a venda gerou.
+devolve ao saldo o bônus usado, cancela os SMS vinculados e cancela o cashback
+que a venda gerou.
+
+::: info Devolveu só parte do pedido?
+Devolução parcial e troca não são cancelamento: use a
+[Troca e devolução parcial](./troca-devolucao).
+:::
 
 **Endpoint principal:** `POST /sales/cancel`, identificado pelo
 `internal_order_id` — o mesmo número de pedido que o seu ERP enviou no
@@ -68,8 +74,12 @@ $response = Http::withToken($token)->post("$baseUrl/sales/cancel", [
 
 | Campo | Significado |
 | --- | --- |
-| `bonus_refunded` | Valor de bônus estornado ao cliente (o que ele usou E/OU o que a venda gerou, conforme regra da Telos) |
+| `bonus_refunded` | Bônus usado nesta venda que **voltou ao saldo** do cliente. É `0` quando a venda não usou bônus ou quando nada pôde voltar (o bônus usado era de outro pedido já cancelado, ou venceu) |
 | `sms_canceled` | Quantidade de SMS vinculados à venda que foram cancelados |
+
+O cashback que a venda **gerou** é cancelado e não entra no
+`bonus_refunded`. Se o cliente já tinha usado esse cashback em outra compra,
+ele não é cobrado: a loja assume o valor.
 
 3. **Trate os erros:**
 
