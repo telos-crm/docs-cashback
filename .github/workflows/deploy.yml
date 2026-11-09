@@ -34,6 +34,9 @@ jobs:
 
       - name: Build site
         run: npm run build
+        env:
+          # "/" com domínio próprio; vazio = /docs-cashback/ (github.io)
+          DOCS_BASE: ${{ vars.DOCS_BASE }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

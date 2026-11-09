@@ -24,7 +24,7 @@ dispensa o PIN — a ordem pula o bloco inteiro:
 ::: warning Sempre se atente ao `request_pin`
 Nunca presuma pelo histórico do cliente: o que define se você envia e solicita
 o PIN é o `request_pin` devolvido pelo `/user/verify` **em cada venda**. E cada
-passo prepara o estado que o próximo consome (`user_id`, `bonus_ids`, campanha
+passo prepara o estado que o próximo consome (`user_id`, `bonus_available`, campanha
 escolhida, totals finais) — chamar fora de ordem gera erro 400/404 — ou, pior,
 venda sem bônus.
 :::
@@ -63,7 +63,7 @@ sequenceDiagram
   PDV->>API: POST /bonus/campaigns (totals FINAIS)
   API-->>PDV: campanhas com valor a acumular + "Não bonificar" (id −1)
 
-  PDV->>API: POST /bonus/submit (campaign_id + bonus_ids[] ou [] + items + totals)
+  PDV->>API: POST /bonus/submit (campaign_id + items + totals com crm_discounts)
   API-->>PDV: usa o bônus e/ou gera o novo (bonus_id ou null)
 
   PDV->>API: POST /sales/total (internal_order_id + generated_bonus_ids)
@@ -230,7 +230,8 @@ $response = Http::withToken($token)->post("$baseUrl/bonus/available", [
     'items' => [['sku' => 'SKU-1', 'value_of' => 100, 'value_per' => 100, 'quantity' => 1]],
 ])->throw()->json();
 
-$bonusIds = $response['data']['bonus_ids']; // guarde o array INTEIRO
+$bonusAvailable = $response['data']['bonus_available']; // quanto esta compra pode usar
+$bonusIds = $response['data']['bonus_ids'];             // opcional no submit
 ```
 
 :::
@@ -258,12 +259,19 @@ $bonusIds = $response['data']['bonus_ids']; // guarde o array INTEIRO
 | `bonus_balance` | Saldo total do cliente |
 | `bonus_available` | Valor que **esta compra** pode usar — pode ser menor que o saldo |
 | `bonus_balance − bonus_available` | Parte **bloqueada** nesta compra (mínimo de resgate, limite por compra) — é o que a pergunta avisa como "perda" |
-| `bonus_accumulate_flag` | Se `false`, esta compra não pode usar bônus (prossiga com `bonus_ids: []`) |
+| `bonus_accumulate_flag` | Se `false`, esta compra não pode usar bônus (prossiga com `crm_discounts: 0`) |
 | `bonus_accumulate_question` | Texto pronto para exibir ao operador e perguntar "usar agora?" |
-| `bonus_ids` | **Todos** os IDs de bônus utilizáveis — guarde o array inteiro |
+| `bonus_ids` | IDs dos bônus utilizáveis. Opcional no `/bonus/submit`; se enviar, mande o array inteiro |
 
 O operador pergunta ao cliente: **quer usar o cashback?** O uso só é
 efetivado no `/bonus/submit`, depois do pagamento.
+
+::: warning Usou, consumiu tudo
+Na regra de uso atual, usar o cashback consome **todos** os bônus usáveis do
+cliente nesta compra: não sobra saldo. Se o saldo é maior que o
+`bonus_available`, a diferença é perdida — é o que a pergunta avisa ao
+operador.
+:::
 
 ### 4. Condição de pagamento e limite de desconto (decisão do PDV)
 
@@ -288,10 +296,10 @@ flowchart TD
 Compra de R$ 100, cashback de R$ 30, Pix com 10% (R$ 10), limite de desconto
 da loja de 30%: 30 + 10 = 40% → **estourou**. O operador negocia:
 
-- **Mantém o cashback** → paga em outra condição. Depois: `bonus_ids` = todos
-  os IDs, `crm_discounts = 30`, `other_discounts = 0`.
+- **Mantém o cashback** → paga em outra condição. Depois: `crm_discounts = 30`,
+  `other_discounts = 0`.
 - **Abre mão do cashback** → fica com o desconto do Pix. Depois:
-  `bonus_ids = []`, `crm_discounts = 0`, `other_discounts = 10`.
+  `crm_discounts = 0`, `other_discounts = 10`.
 - **Dá para combinar** (não estourou) → segue com os dois.
 :::
 
@@ -411,7 +419,7 @@ $response = Http::withToken($token)->post("$baseUrl/bonus/submit", [
     'user_id' => $userId,
     'campaign_id' => 20628,
     'pin_master' => false,
-    'bonus_ids' => $bonusIds,       // todos os IDs recebidos, ou []
+    'bonus_ids' => $bonusIds,       // opcional: todos os IDs recebidos
     'internal_order_id' => 'PED-9001',
     'items' => [['sku' => 'SKU-1', 'value_of' => 100, 'value_per' => 100, 'quantity' => 1]],
     'payments' => [['system_name' => 'VISA', 'type' => 'CREDIT_CARD', 'value' => 120.0, 'installments' => 1]],
@@ -443,8 +451,12 @@ $bonusId = $response->json('data.bonus_id');
 
 - `campaign_id`: o `id` da campanha escolhida no passo 5. Escolheu **"Não
   bonificar"** (`id = -1`)? Envie `campaign_id: -1` (ou omita o campo).
-- `bonus_ids`: **todos** os IDs recebidos no `/bonus/available` (cliente usou)
-  **ou `[]`** (cliente não usou / não tinha).
+- `totals.crm_discounts`: o valor pago com bônus. **É ele que decide o uso**:
+  maior que zero, a Telos debita os bônus do cliente; zero, não usa nada. A
+  Telos nunca debita mais que o `bonus_available` da compra nem que o saldo.
+- `bonus_ids`: opcional. Se enviar, mande **todos** os IDs recebidos no
+  `/bonus/available`; a Telos busca os bônus do cliente por conta própria.
+  `bonus_ids` preenchido com `crm_discounts: 0` **não** usa bônus.
 - `bonus_generated = false` (e `bonus_id: null`) é **resposta de sucesso** — a
   venda processou mas não gerou bônus (campanha "Não bonificar", crédito
   R$ 0, sem campanha aplicável).
@@ -488,8 +500,9 @@ Http::withToken($token)->post("$baseUrl/sales/total", [
 
 :::
 
-Guarde o `sale_id` + `internal_order_id` no ERP: o cancelamento usa o
-`internal_order_id` (ver [Cancelamento de venda](./cancelamento)).
+Guarde o `sale_id` + `internal_order_id` no ERP: a troca e o cancelamento
+usam o `internal_order_id` (ver [Troca e devolução parcial](./troca-devolucao)
+e [Cancelamento de venda](./cancelamento)).
 
 ## Erros deste fluxo
 
@@ -500,7 +513,7 @@ Guarde o `sale_id` + `internal_order_id` no ERP: o cancelamento usa o
 | `/pin/validate` | `404 Usuário não encontrado` | `user_id` da outra sessão — refazer o verify |
 | `/bonus/available` | `404 Usuário não encontrado` | `user_id` não resolve — refazer o verify |
 | `/bonus/submit` | `409 Transação já processada` | **Sucesso**: o pedido já passou; seguir para o `/sales/total` |
-| `/bonus/submit` | `422 BONUS_VALUE_MINIMUM_NOT_MET` | Compra abaixo do mínimo: refazer com `bonus_ids: []` e seguir a venda |
+| `/bonus/submit` | `422 BONUS_VALUE_MINIMUM_NOT_MET` | Compra abaixo do mínimo para usar bônus: refazer com `crm_discounts: 0` e seguir a venda |
 | `/sales/total` | `500` | Retry com backoff — seguro, a chave é o `internal_order_id` |
 
 Regras completas em [Erros e novas tentativas](../guia/erros).
@@ -511,8 +524,8 @@ Antes de ligar o fluxo no caixa real, confira:
 
 - [ ] Ordem das chamadas conforme o diagrama (verify → PIN → available → pagamento → campaigns → submit → total)
 - [ ] `request_pin` respeitado em toda venda (sem "achar" pelo histórico)
-- [ ] `bonus_ids` enviados por completo, ou `[]`
-- [ ] `crm_discounts` refletindo exatamente o valor pago com bônus
+- [ ] `crm_discounts` refletindo exatamente o valor pago com bônus (`0` quando o cliente não usa)
+- [ ] `bonus_ids`, se enviados, completos
 - [ ] `bonus/campaigns` chamado com os **totals finais** (após o pagamento)
 - [ ] Opção "Não bonificar" (`id -1`) exibida ao vendedor, inclusive com o motivo
 - [ ] `/sales/total` sempre executado, com `generated_bonus_ids` correto

@@ -41,8 +41,8 @@ humano sujeito a ajuste; o código é contrato.
 | **400** | Payload inválido (`Dados inválidos`, `CPF inválido`, campo obrigatório faltando) | **Não repetir**: é bug do integrador. Corrigir payload/cadastro |
 | **401** | Token ausente, expirado ou inválido (`Invalid Token`) | Rodar `/refresh`; se falhar, refazer `/auth` e repetir a chamada **uma vez** |
 | **404** | Recurso não existe (`Usuário não encontrado`, venda inexistente) | Verificar o `user_id`/`internal_order_id` usado — chamada fora de ordem ou sessão trocada. **Não dar retry cego** |
-| **409** | Conflito de estado (`Transação já processada`, venda já cancelada) | **Tratar como sucesso**: a operação já foi feita antes. Seguir o fluxo |
-| **422** | Regra de negócio impede a operação (ex.: mínimo de compra para usar bônus) | Ação de negócio: refazer o submit sem bônus (`bonus_ids: []`) e seguir a venda |
+| **409** | Conflito de estado (`Transação já processada`, venda já cancelada) | **Tratar como sucesso**: a operação já foi feita antes. Seguir o fluxo. Exceções: os `409` do `/sales/adjust` (ver abaixo) |
+| **422** | Regra de negócio impede a operação (ex.: mínimo de compra para usar bônus) | Ação de negócio: refazer o submit sem bônus (`crm_discounts: 0`) e seguir a venda |
 | **429** | Rate limit (600/min por credencial) ou janela de 60s do PIN/resend | Backoff exponencial (rate limit) ou aguardar a janela (PIN). Nunca loop apertado |
 | **500** | Erro interno | Retry com backoff (2 tentativas). Persistindo em rota de escrita, resolver com o suporte antes de reenviar |
 
@@ -65,8 +65,8 @@ quando o telefone **mudou** dentro da janela ou o PIN **já foi validado**.
 | 500 | Sim (máx. 2) | Backoff. Em `/sales/total` o retry é seguro — a chave é o `internal_order_id` |
 | 401 | Sim (1x) | `/refresh` → repetir chamada; falhou → `/auth` |
 | 400/404 | **Não** | Erro de integração/payload — corrigir antes |
-| 409 | Não é erro | Seguir fluxo como sucesso |
-| Timeout de rede em escrita | **Cuidado** | Reenviar `/bonus/submit` e tratar `409` como sucesso (a chave é o `internal_order_id`) |
+| 409 | Não é erro (exceto no `/sales/adjust`) | Seguir fluxo como sucesso |
+| Timeout de rede em escrita | **Cuidado** | Reenviar `/bonus/submit` e tratar `409` como sucesso (a chave é o `internal_order_id`). No `/sales/adjust`, reenviar igual: a resposta é `200` com o resultado da primeira vez |
 
 ::: warning Nunca reenvie o submit às cegas
 Depois de um timeout no `/bonus/submit`, reenvie com o **mesmo**
@@ -113,7 +113,7 @@ Depois de um timeout no `/bonus/submit`, reenvie com o **mesmo**
 | 400 | `Dados inválidos: …` | Payload (itens, totals, `internal_order_id`) |
 | 404 | `Usuário não encontrado` | `user_id` não resolve |
 | 409 | `Transação já processada` | Mesmo pedido processado antes → **tratar como sucesso** |
-| 422 | `BONUS_VALUE_MINIMUM_NOT_MET` | Compra abaixo do mínimo para usar bônus → refazer com `bonus_ids: []` |
+| 422 | `BONUS_VALUE_MINIMUM_NOT_MET` | Compra abaixo do mínimo para usar bônus → refazer com `crm_discounts: 0` |
 
 ### `/sales/total`
 
@@ -129,3 +129,17 @@ Depois de um timeout no `/bonus/submit`, reenvie com o **mesmo**
 | 400 | `internal_order_id é obrigatório` | Payload |
 | 404 | (mensagem da exceção) | Venda não existe na Telos → gap de sincronização; reportar ao suporte |
 | 409 | (mensagem da exceção) | Venda **já cancelada** → tratar como OK (idempotente para o usuário) |
+
+### `/sales/adjust`
+
+Erros com `error.code` (ver [Troca e devolução parcial](../fluxos/troca-devolucao)):
+
+| HTTP | `error.code` | Causa e ação |
+| --- | --- | --- |
+| 400 | `INVALID_DATA` | Payload: campos obrigatórios ou formato |
+| 404 | `ORDER_NOT_FOUND` | Pedido sem registro na Telos → não há o que ajustar |
+| 409 | `ORDER_CANCELLED` | Pedido cancelado → não há o que ajustar |
+| 409 | `ADJUSTMENT_CONFLICT` | `adjustment_id` já usado com outro conteúdo → **erro**: cada troca precisa do próprio `adjustment_id` |
+
+Repetir o mesmo ajuste (mesmo `adjustment_id` e mesmo conteúdo) **não** dá
+409: responde `200` com a resposta da primeira vez.
