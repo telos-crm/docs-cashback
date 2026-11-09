@@ -2,12 +2,12 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Telos Giftback API",
-        "description": "API completa para gerenciamento de programa de fidelidade e cashback",
+        "description": "API completa para gerenciamento de programa de fidelidade e cashback\n\n## Changelog\n\n**1.2.0 (novembro/2026)**\n- Novo `POST /sales/adjust`: ajusta o cashback de um pedido já enviado depois de uma troca (`EXCHANGE`) ou devolução parcial (`RETURN`). O ERP envia o estado final do pedido (`items` e `totals`, no formato do `/bonus/submit`) e um `adjustment_id` único; repetir o mesmo ajuste devolve a mesma resposta.\n- `POST /sales/cancel`: `bonus_refunded` passa a ser 0 quando nada volta ao saldo do cliente (crédito de origem cancelado ou vencido).\n\n**1.1.0 (novembro/2026)**\n- `POST /bonus/submit`: quem decide o uso de bônus é `totals.crm_discounts`. Com valor maior que zero, o backend debita os bônus disponíveis do cliente mesmo com `bonus_ids` vazio ou ausente (antes, `bonus_ids: []` significava não usar bônus). Para não usar bônus, envie `crm_discounts = 0`. Descontos que não são cashback vão em `totals.other_discounts`.\n\n**1.0.0**: versão inicial.",
         "contact": {
             "name": "Telos CRM - Suporte Técnico",
             "email": "diego.dias@teloscrm.com.br"
         },
-        "version": "1.0.0"
+        "version": "1.2.0"
     },
     "servers": [
         {
@@ -670,7 +670,7 @@
                     "Finalização da compra"
                 ],
                 "summary": "Finalizar compra e gerar bônus",
-                "description": "Processa uma venda completa: usa bônus existentes (se solicitado) e gera novo bônus. REGRAS IMPORTANTES: 1) Se bonus_ids for enviado (não vazio), o cliente QUER usar bônus - o backend buscará TODOS os bônus disponíveis e processará (validação dupla). 2) Se bonus_ids for vazio [], o cliente NÃO quer usar bônus (quer acumular). 3) Regra 'sem saldo restante': ao usar qualquer bônus, todos são consumidos/perdidos. 4) Créditos de R$0 NÃO são gerados.<br><br><b>Contrato dos totals (obrigatório):</b><br>• <b>subtotal</b> = Σ (value_per × quantity) — soma das linhas após desconto de produto/promoção cadastrada<br>• <b>total</b> = subtotal + fee + taxes − crm_discounts − other_discounts<br>• <b>crm_discounts</b> = valor pago com bônus / cashback usado<br>• <b>other_discounts</b> = descontos negociados na hora (vendedor, meio de pagamento, cupom, frete) — NÃO usar pra promoção de produto cadastrada<br>• Promoções de produto cadastradas devem ser marcadas como value_of diferente de value_per no item.<br>• <b>Proteção defensiva</b>: o backend valida Σ (value_per × quantity) == subtotal e a equação dos totals. Quando há violação, a base é capada em total × percentual da campanha.<br><br><b>Como o parâmetro bonificar_produtos_promocao afeta o bônus gerado:</b><br>• <b>true</b> (default): bônus é calculado sobre totals.total.<br>• <b>false</b>: somente itens com value_of == value_per geram bônus. Descontos globais são distribuídos proporcionalmente. Fórmula: base = total × min(1.0, Σ value_per dos elegíveis / subtotal).",
+                "description": "Processa uma venda completa: usa bônus existentes (se solicitado) e gera novo bônus. REGRAS IMPORTANTES: 1) Se totals.crm_discounts > 0, o cliente usou bônus - o backend buscará TODOS os bônus disponíveis e processará (validação dupla), mesmo que bonus_ids venha vazio. 2) Se totals.crm_discounts = 0, o cliente NÃO usa bônus (acumula). 3) Regra 'sem saldo restante': ao usar qualquer bônus, todos são consumidos/perdidos. 4) Créditos de R$0 NÃO são gerados.<br><br><b>Contrato dos totals (obrigatório):</b><br>• <b>subtotal</b> = Σ (value_per × quantity) — soma das linhas após desconto de produto/promoção cadastrada<br>• <b>total</b> = subtotal + fee + taxes − crm_discounts − other_discounts<br>• <b>crm_discounts</b> = valor pago com bônus / cashback usado<br>• <b>other_discounts</b> = descontos negociados na hora (vendedor, meio de pagamento, cupom, frete) — NÃO usar pra promoção de produto cadastrada<br>• Promoções de produto cadastradas devem ser marcadas como value_of diferente de value_per no item.<br>• <b>Proteção defensiva</b>: o backend valida Σ (value_per × quantity) == subtotal e a equação dos totals. Quando há violação, a base é capada em total × percentual da campanha.<br><br><b>Como o parâmetro bonificar_produtos_promocao afeta o bônus gerado:</b><br>• <b>true</b> (default): bônus é calculado sobre totals.total.<br>• <b>false</b>: somente itens com value_of == value_per geram bônus. Descontos globais são distribuídos proporcionalmente. Fórmula: base = total × min(1.0, Σ value_per dos elegíveis / subtotal).",
                 "operationId": "4a1f2cd1a31e018bace0ad8c6bf3ba87",
                 "requestBody": {
                     "required": true,
@@ -718,7 +718,7 @@
                                         "example": "V-001"
                                     },
                                     "bonus_ids": {
-                                        "description": "IDs dos bônus a utilizar (obtidos em /bonus/available). Envie TODOS os IDs recebidos ou array vazio [] se não quiser usar.",
+                                        "description": "IDs dos bônus a utilizar (obtidos em /bonus/available). Opcional: com totals.crm_discounts > 0 o backend usa todos os bônus disponíveis, enviados ou não. Para não usar bônus, envie totals.crm_discounts = 0.",
                                         "type": "array",
                                         "items": {
                                             "type": "string"
@@ -1600,6 +1600,223 @@
                 ]
             }
         },
+        "/sales/adjust": {
+            "post": {
+                "tags": [
+                    "Troca e devolução"
+                ],
+                "summary": "Ajustar pedido (troca ou devolução parcial)",
+                "description": "Ajusta o cashback de um pedido já enviado ao /bonus/submit depois de uma troca ou devolução parcial.<br><br><b>Envie o estado final do pedido</b>, não o que mudou: <b>items</b> com todos os itens depois do ajuste e <b>totals</b> no mesmo formato do /bonus/submit. O Telos recalcula o cashback desse estado com a campanha do pedido original e aplica a diferença:<br>• <b>a maior</b>: crédito complementar (datas contadas do ajuste, sem SMS de confirmação);<br>• <b>a menor</b>: reduz o cashback ainda disponível do pedido. O que já foi usado ou venceu não é cobrado do cliente (bonus_absorbed).<br><br><b>totals.total</b> = valor efetivamente pago depois do ajuste (na troca a menor e na devolução, sem o que voltou ao cliente). <b>totals.crm_discounts</b> = cashback usado que continua no pedido; na troca, o mesmo do pedido original.<br><br>Devolução de todos os itens não é ajuste: use /sales/cancel.<br><br><b>Idempotência:</b> o mesmo adjustment_id com o mesmo conteúdo devolve 200 com a mesma resposta, sem alterar nada. Com conteúdo diferente, 409 ADJUSTMENT_CONFLICT.<br><br><b>warnings</b> é uma lista aberta: novos códigos podem aparecer sem mudar a versão.",
+                "operationId": "4a0fae2670dae00ff5e582c73ee4378f",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "internal_order_id",
+                                    "adjustment_id",
+                                    "type",
+                                    "items",
+                                    "totals"
+                                ],
+                                "properties": {
+                                    "internal_order_id": {
+                                        "description": "Pedido original, o mesmo enviado no /bonus/submit",
+                                        "type": "string",
+                                        "example": "500425"
+                                    },
+                                    "adjustment_id": {
+                                        "description": "Identificador único da troca/devolução no ERP (o número da venda de troca serve). Chave de idempotência por pedido",
+                                        "type": "string",
+                                        "maxLength": 100,
+                                        "example": "TROCA-7781"
+                                    },
+                                    "type": {
+                                        "description": "EXCHANGE = troca; RETURN = devolução parcial sem troca",
+                                        "type": "string",
+                                        "enum": [
+                                            "EXCHANGE",
+                                            "RETURN"
+                                        ],
+                                        "example": "EXCHANGE"
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "maxLength": 500,
+                                        "example": "Troca de tamanho"
+                                    },
+                                    "items": {
+                                        "description": "Todos os itens do pedido depois do ajuste",
+                                        "type": "array",
+                                        "items": {
+                                            "properties": {
+                                                "sku": {
+                                                    "type": "string",
+                                                    "example": "VESTIDO-M"
+                                                },
+                                                "value_of": {
+                                                    "type": "number",
+                                                    "example": 150
+                                                },
+                                                "value_per": {
+                                                    "type": "number",
+                                                    "example": 150
+                                                },
+                                                "quantity": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "totals": {
+                                        "required": [
+                                            "crm_discounts",
+                                            "total"
+                                        ],
+                                        "properties": {
+                                            "subtotal": {
+                                                "type": "number",
+                                                "example": 350
+                                            },
+                                            "fee": {
+                                                "type": "number",
+                                                "example": 0
+                                            },
+                                            "taxes": {
+                                                "type": "number",
+                                                "example": 0
+                                            },
+                                            "crm_discounts": {
+                                                "type": "number",
+                                                "example": 60
+                                            },
+                                            "other_discounts": {
+                                                "type": "number",
+                                                "example": 0
+                                            },
+                                            "total": {
+                                                "description": "Valor efetivamente pago depois do ajuste",
+                                                "type": "number",
+                                                "example": 290
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Pedido ajustado (ou repetição do mesmo ajuste)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Order adjusted"
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "internal_order_id": {
+                                                    "type": "string",
+                                                    "example": "500425"
+                                                },
+                                                "adjustment_id": {
+                                                    "type": "string",
+                                                    "example": "TROCA-7781"
+                                                },
+                                                "type": {
+                                                    "type": "string",
+                                                    "example": "EXCHANGE"
+                                                },
+                                                "bonus_before": {
+                                                    "description": "Cashback ativo do pedido antes do ajuste",
+                                                    "type": "number",
+                                                    "example": 24
+                                                },
+                                                "bonus_after": {
+                                                    "description": "Cashback recalculado para o novo estado. bonus_after = bonus_before + bonus_delta − bonus_absorbed",
+                                                    "type": "number",
+                                                    "example": 29
+                                                },
+                                                "bonus_delta": {
+                                                    "description": "Quanto mudou nos créditos do cliente (positivo: complementar; negativo: redução)",
+                                                    "type": "number",
+                                                    "example": 5
+                                                },
+                                                "bonus_absorbed": {
+                                                    "description": "Quanto a loja assume no pedido depois deste ajuste: redução que não pôde ser aplicada porque o cashback já foi usado ou venceu. Acumulado do pedido, não só deste ajuste",
+                                                    "type": "number",
+                                                    "example": 0
+                                                },
+                                                "bonus_refunded": {
+                                                    "description": "Cashback usado devolvido ao saldo. Hoje sempre 0",
+                                                    "type": "number",
+                                                    "example": 0
+                                                },
+                                                "generated_bonus_id": {
+                                                    "description": "Crédito complementar, quando houver",
+                                                    "type": "string",
+                                                    "example": "6m6AU/VuGMZablszkpr8/w==",
+                                                    "nullable": true
+                                                },
+                                                "adjusted_at": {
+                                                    "type": "string",
+                                                    "example": "2026-11-13T14:30:00-03:00"
+                                                },
+                                                "warnings": {
+                                                    "description": "ORDER_WITHOUT_BONUS, PAYLOAD_INCONSISTENT, CRM_DISCOUNTS_CHANGED, BONUS_RULE_NOT_FOUND, MODE_NOT_SUPPORTED",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "code": {
+                                                                "type": "string",
+                                                                "example": "ORDER_WITHOUT_BONUS"
+                                                            },
+                                                            "detail": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "INVALID_DATA"
+                    },
+                    "404": {
+                        "description": "ORDER_NOT_FOUND: pedido sem registro no Telos na loja da credencial (não gerou nem usou cashback e não foi enviado ao /sales/total)"
+                    },
+                    "409": {
+                        "description": "ORDER_CANCELLED ou ADJUSTMENT_CONFLICT"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/user/verify": {
             "post": {
                 "tags": [
@@ -1931,6 +2148,10 @@
         {
             "name": "Cancelar venda",
             "description": "Operações relacionadas ao cancelamento de vendas e estorno de bônus"
+        },
+        {
+            "name": "Troca e devolução",
+            "description": "Troca e devolução"
         }
     ]
 }
