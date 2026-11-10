@@ -2,12 +2,12 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Telos Giftback API",
-        "description": "API completa para gerenciamento de programa de fidelidade e cashback\n\n## Changelog\n\n**1.2.0 (novembro/2026)**\n- Novo `POST /sales/adjust`: ajusta o cashback de um pedido já enviado depois de uma troca (`EXCHANGE`) ou devolução parcial (`RETURN`). O ERP envia o estado final do pedido (`items` e `totals`, no formato do `/bonus/submit`) e um `adjustment_id` único; repetir o mesmo ajuste devolve a mesma resposta.\n- `POST /sales/cancel`: `bonus_refunded` passa a ser 0 quando nada volta ao saldo do cliente (crédito de origem cancelado ou vencido).\n\n**1.1.0 (novembro/2026)**\n- `POST /bonus/submit`: quem decide o uso de bônus é `totals.crm_discounts`. Com valor maior que zero, o backend debita os bônus disponíveis do cliente mesmo com `bonus_ids` vazio ou ausente (antes, `bonus_ids: []` significava não usar bônus). Para não usar bônus, envie `crm_discounts = 0`. Descontos que não são cashback vão em `totals.other_discounts`.\n\n**1.0.0**: versão inicial.",
+        "description": "API completa para gerenciamento de programa de fidelidade e cashback\n\n## Changelog\n\n**1.3.0 (novembro/2026)**\n- `POST /bonus/available`: novo campo `bonus_usage_mode` com a regra de uso do saldo da marca no canal da loja: `TOTAL_WITH_LOSS` (usar consome todos os créditos; o que passa do limite da compra é perdido), `PARTIAL` (o resto fica no saldo) ou `ALL_OR_NOTHING` (cada crédito só é usado se couber inteiro). Hoje todas as marcas estão em `TOTAL_WITH_LOSS`. Trate valores desconhecidos como `TOTAL_WITH_LOSS`.\n\n**1.2.0 (novembro/2026)**\n- Novo `POST /sales/adjust`: ajusta o cashback de um pedido já enviado depois de uma troca (`EXCHANGE`) ou devolução parcial (`RETURN`). O ERP envia o estado final do pedido (`items` e `totals`, no formato do `/bonus/submit`) e um `adjustment_id` único; repetir o mesmo ajuste devolve a mesma resposta.\n- `POST /sales/cancel`: `bonus_refunded` passa a ser 0 quando nada volta ao saldo do cliente (crédito de origem cancelado ou vencido).\n\n**1.1.0 (novembro/2026)**\n- `POST /bonus/submit`: quem decide o uso de bônus é `totals.crm_discounts`. Com valor maior que zero, o backend debita os bônus disponíveis do cliente mesmo com `bonus_ids` vazio ou ausente (antes, `bonus_ids: []` significava não usar bônus). Para não usar bônus, envie `crm_discounts = 0`. Descontos que não são cashback vão em `totals.other_discounts`.\n\n**1.0.0**: versão inicial.",
         "contact": {
             "name": "Telos CRM - Suporte Técnico",
             "email": "diego.dias@teloscrm.com.br"
         },
-        "version": "1.2.0"
+        "version": "1.3.0"
     },
     "servers": [
         {
@@ -299,7 +299,7 @@
                     "Consulta dos bônus"
                 ],
                 "summary": "Consultar saldo disponível",
-                "description": "Retorna o saldo de bônus disponível do cliente. IMPORTANTE: O campo bonus_ids retorna TODOS os IDs de bônus disponíveis do cliente. Ao usar bônus via /bonus/submit, o ERP deve enviar todos os bonus_ids recebidos, pois a regra de negócio é 'não há saldo restante' - o cliente usa 100% do bônus disponível ou perde o que sobrar.<br><br><b>Contrato dos items:</b><br>• <b>value_of</b> = preço de tabela (cheio)<br>• <b>value_per</b> = preço efetivo na linha após desconto de produto/promoção<br>• Promoções de produto devem vir como value_of diferente de value_per.<br><br><b>Como o parâmetro usa_bonus_produtos_promocao afeta a resposta:</b><br>• <b>true</b> (default): cliente pode usar bônus sobre o valor total da compra (value).<br>• <b>false</b>: cliente só pode usar bônus em até percentual_maximo_uso × Σ value_per dos itens cheios (value_of == value_per). Se nenhum item cheio, bonus_available = 0.",
+                "description": "Retorna o saldo de bônus disponível do cliente. IMPORTANTE: O campo bonus_ids retorna TODOS os IDs de bônus disponíveis do cliente. Ao usar bônus via /bonus/submit, o ERP deve enviar todos os bonus_ids recebidos.<br><br><b>Regra de uso do saldo (bonus_usage_mode)</b>, configurada pela marca para o canal da loja:<br>• <b>TOTAL_WITH_LOSS</b>: usar o bônus consome todos os créditos usáveis; o que passa do limite da compra é perdido (não há saldo restante).<br>• <b>PARTIAL</b>: usa até o limite da compra; o resto continua no saldo do cliente.<br>• <b>ALL_OR_NOTHING</b>: cada crédito só é usado se couber inteiro no limite da compra.<br>Hoje todas as marcas estão em TOTAL_WITH_LOSS; os outros valores entram quando a marca ativar o modo. Trate valores desconhecidos como TOTAL_WITH_LOSS.<br><br><b>Contrato dos items:</b><br>• <b>value_of</b> = preço de tabela (cheio)<br>• <b>value_per</b> = preço efetivo na linha após desconto de produto/promoção<br>• Promoções de produto devem vir como value_of diferente de value_per.<br><br><b>Como o parâmetro usa_bonus_produtos_promocao afeta a resposta:</b><br>• <b>true</b> (default): cliente pode usar bônus sobre o valor total da compra (value).<br>• <b>false</b>: cliente só pode usar bônus em até percentual_maximo_uso × Σ value_per dos itens cheios (value_of == value_per). Se nenhum item cheio, bonus_available = 0.",
                 "operationId": "3d38800f6778caca37f802e2746b59db",
                 "requestBody": {
                     "required": true,
@@ -408,6 +408,16 @@
                                                 "use_sku_rescue": {
                                                     "type": "boolean",
                                                     "example": false
+                                                },
+                                                "bonus_usage_mode": {
+                                                    "description": "Regra de uso do saldo no canal desta loja (ver descrição da rota)",
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "TOTAL_WITH_LOSS",
+                                                        "PARTIAL",
+                                                        "ALL_OR_NOTHING"
+                                                    ],
+                                                    "example": "TOTAL_WITH_LOSS"
                                                 },
                                                 "items": {
                                                     "type": "array",
