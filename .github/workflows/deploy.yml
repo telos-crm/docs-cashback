@@ -33,6 +33,11 @@ jobs:
         run: npm ci
 
       - name: Build site
+        # DOCS_BASE=/ : o site é servido na raiz do domínio próprio
+        # (docs-cashback.telosdigital.app.br). Se voltar ao subcaminho do
+        # GitHub Pages, remover o env (default: /docs-cashback/).
+        env:
+          DOCS_BASE: /
         run: npm run build
         env:
           # "/" com domínio próprio; vazio = /docs-cashback/ (github.io)
