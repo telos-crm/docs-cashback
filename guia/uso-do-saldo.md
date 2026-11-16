@@ -40,9 +40,34 @@ usar até R$ 30,00.
 | `PARTIAL` | 30,00 | 30,00 (ou menos) | O de R$ 20,00 consumido; R$ 15,00 continuam no de R$ 25,00 |
 | `ALL_OR_NOTHING` | 20,00 | 20,00 | O de R$ 20,00 consumido; o de R$ 25,00 intacto (não cabia nos R$ 10,00 restantes) |
 
-A pergunta pronta para o operador (`bonus_accumulate_question`) já acompanha o
-modo: avisa a perda no `TOTAL_WITH_LOSS` e diz que o restante continua no
-saldo nos outros dois.
+## Pergunta ao operador
+
+O `bonus_accumulate_question` do `/bonus/available` é um texto pronto para o
+PDV exibir, e já acompanha o modo: só avisa perda quando o cliente de fato
+perde. Exiba como veio, sem montar a frase no ERP.
+
+Com os números do exemplo acima:
+
+| Modo | `bonus_accumulate_question` |
+| --- | --- |
+| `TOTAL_WITH_LOSS` | O cliente tem bonus de R$ 30,00 disponivel. Deseja utilizar agora? (Este cliente está perdendo R$ 15,00 de bônus! Para não perder é necessário que a compra em produtos elegíveis seja de R$ 150,00 ou +) |
+| `PARTIAL` | O cliente tem bonus de R$ 30,00 disponivel. Deseja utilizar agora? (O restante de R$ 15,00 continua no saldo do cliente.) |
+| `ALL_OR_NOTHING` | O cliente tem bonus de R$ 20,00 disponivel. Deseja utilizar agora? (Os créditos que não cabem inteiros no limite desta compra continuam no saldo.) |
+
+O complemento entre parênteses só aparece quando o saldo é maior que o
+`bonus_available`. Quando a compra não pode usar nada, a pergunta explica o
+motivo e `bonus_accumulate_flag` vem `false`:
+
+| Situação | `bonus_accumulate_question` |
+| --- | --- |
+| `ALL_OR_NOTHING` sem nenhum crédito que caiba inteiro | Nenhum crédito do cliente cabe inteiro no limite de uso desta compra. |
+| Todos os itens em promoção e a marca não permite bônus neles | Bônus não pode ser usado em produtos com desconto. |
+| Compra abaixo do valor mínimo para usar bônus | Mensagem com o valor mínimo da loja |
+
+::: tip A mensagem é texto, o modo é contrato
+Para decidir a tela do PDV (ex.: permitir digitar um valor menor no
+`PARTIAL`), use o `bonus_usage_mode`. A pergunta pode mudar de redação.
+:::
 
 ## Como cada modo usa o `crm_discounts`
 
