@@ -42,7 +42,7 @@ humano sujeito a ajuste; o código é contrato.
 | **401** | Token ausente, expirado ou inválido (`Invalid Token`) | Rodar `/refresh`; se falhar, refazer `/auth` e repetir a chamada **uma vez** |
 | **404** | Recurso não existe (`Usuário não encontrado`, venda inexistente) | Verificar o `user_id`/`internal_order_id` usado — chamada fora de ordem ou sessão trocada. **Não dar retry cego** |
 | **409** | Conflito de estado (`Transação já processada`, venda já cancelada) | **Tratar como sucesso**: a operação já foi feita antes. Seguir o fluxo. Exceções: os `409` do `/sales/adjust` (ver abaixo) |
-| **422** | Regra de negócio impede a operação (ex.: mínimo de compra para usar bônus) | Ação de negócio: refazer o submit sem bônus (`crm_discounts: 0`) e seguir a venda |
+| **422** | Regra de negócio impede a operação (ex.: mínimo de compra para usar bônus) | Ação de negócio: refazer o submit sem bônus (`crm_discounts: 0`) ou com o valor permitido que vem no erro, e seguir a venda |
 | **429** | Rate limit (600/min por credencial) ou janela de 60s do PIN/resend | Backoff exponencial (rate limit) ou aguardar a janela (PIN). Nunca loop apertado |
 | **500** | Erro interno | Retry com backoff (2 tentativas). Persistindo em rota de escrita, resolver com o suporte antes de reenviar |
 
@@ -114,6 +114,11 @@ Depois de um timeout no `/bonus/submit`, reenvie com o **mesmo**
 | 404 | `Usuário não encontrado` | `user_id` não resolve |
 | 409 | `Transação já processada` | Mesmo pedido processado antes → **tratar como sucesso** |
 | 422 | `BONUS_VALUE_MINIMUM_NOT_MET` | Compra abaixo do mínimo para usar bônus → refazer com `crm_discounts: 0` |
+| 422 | `BONUS_NOT_ALLOWED_ON_PROMOTION` | Todos os itens em promoção e a marca não permite bônus neles → refazer com `crm_discounts: 0` |
+| 422 | `USO_ACIMA_DO_PERMITIDO` | `crm_discounts` acima do permitido e a marca recusa (ou `ALL_OR_NOTHING` sem crédito que caiba) → refazer com até `valor_maximo` ou com `0` |
+| 422 | `USO_PARCIAL_NAO_PERMITIDO` | `ALL_OR_NOTHING`: o valor não fecha com créditos inteiros → refazer com o `valor_permitido` ou com `0` |
+
+Em todos os `422`, nada é gravado. Ver [Regras de uso do saldo](./uso-do-saldo).
 
 ### `/sales/total`
 

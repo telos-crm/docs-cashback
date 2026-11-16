@@ -248,6 +248,7 @@ $bonusIds = $response['data']['bonus_ids'];             // opcional no submit
         "bonus_accumulate_question": "O cliente tem bonus de R$ 30,00 disponivel. Deseja utilizar agora? (Este cliente está perdendo R$ 20,00 de bônus!)",
         "bonus_ids": ["nR1+ENnNxiJqmBr7iBMI+A==", "+6Z15u6ChtC8QTp8hylURA=="],
         "use_sku_rescue": false,
+        "bonus_usage_mode": "TOTAL_WITH_LOSS",
         "items": []
     }
 }
@@ -258,19 +259,27 @@ $bonusIds = $response['data']['bonus_ids'];             // opcional no submit
 | `bonus_has` | Cliente possui algum bônus acumulado |
 | `bonus_balance` | Saldo total do cliente |
 | `bonus_available` | Valor que **esta compra** pode usar — pode ser menor que o saldo |
-| `bonus_balance − bonus_available` | Parte **bloqueada** nesta compra (mínimo de resgate, limite por compra) — é o que a pergunta avisa como "perda" |
+| `bonus_balance − bonus_available` | Parte que **esta compra não pode usar** (mínimo de resgate, limite por compra). Se é perdida ou fica no saldo depende do `bonus_usage_mode` |
 | `bonus_accumulate_flag` | Se `false`, esta compra não pode usar bônus (prossiga com `crm_discounts: 0`) |
 | `bonus_accumulate_question` | Texto pronto para exibir ao operador e perguntar "usar agora?" |
 | `bonus_ids` | IDs dos bônus utilizáveis. Opcional no `/bonus/submit`; se enviar, mande o array inteiro |
+| `bonus_usage_mode` | Regra de uso do saldo da marca: `TOTAL_WITH_LOSS`, `PARTIAL` ou `ALL_OR_NOTHING` (ver abaixo). Valor desconhecido = `TOTAL_WITH_LOSS` |
 
 O operador pergunta ao cliente: **quer usar o cashback?** O uso só é
 efetivado no `/bonus/submit`, depois do pagamento.
 
-::: warning Usou, consumiu tudo
-Na regra de uso atual, usar o cashback consome **todos** os bônus usáveis do
-cliente nesta compra: não sobra saldo. Se o saldo é maior que o
-`bonus_available`, a diferença é perdida — é o que a pergunta avisa ao
-operador.
+::: warning O que acontece com o resto do saldo
+Depende do `bonus_usage_mode` da marca:
+
+- `TOTAL_WITH_LOSS`: usar o cashback consome **todos** os bônus usáveis. Se o
+  saldo é maior que o `bonus_available`, a diferença é perdida, e a pergunta
+  avisa o operador.
+- `PARTIAL`: o cliente usa até o `bonus_available` (pode usar menos) e o resto
+  continua no saldo.
+- `ALL_OR_NOTHING`: o `bonus_available` já é a soma dos créditos inteiros que
+  cabem nesta compra; use exatamente esse valor ou nada.
+
+Detalhes e exemplo em [Regras de uso do saldo](../guia/uso-do-saldo).
 :::
 
 ### 4. Condição de pagamento e limite de desconto (decisão do PDV)
@@ -453,7 +462,10 @@ $bonusId = $response->json('data.bonus_id');
   bonificar"** (`id = -1`)? Envie `campaign_id: -1` (ou omita o campo).
 - `totals.crm_discounts`: o valor pago com bônus. **É ele que decide o uso**:
   maior que zero, a Telos debita os bônus do cliente; zero, não usa nada. A
-  Telos nunca debita mais que o `bonus_available` da compra nem que o saldo.
+  Telos nunca debita mais que o `bonus_available` da compra nem que o saldo:
+  acima disso, limita ao permitido ou, se a marca preferir, recusa com
+  `422 USO_ACIMA_DO_PERMITIDO`. Quanto sai do saldo depende do
+  `bonus_usage_mode` ([Regras de uso do saldo](../guia/uso-do-saldo)).
 - `bonus_ids`: opcional. Se enviar, mande **todos** os IDs recebidos no
   `/bonus/available`; a Telos busca os bônus do cliente por conta própria.
   `bonus_ids` preenchido com `crm_discounts: 0` **não** usa bônus.
@@ -514,6 +526,9 @@ e [Cancelamento de venda](./cancelamento)).
 | `/bonus/available` | `404 Usuário não encontrado` | `user_id` não resolve — refazer o verify |
 | `/bonus/submit` | `409 Transação já processada` | **Sucesso**: o pedido já passou; seguir para o `/sales/total` |
 | `/bonus/submit` | `422 BONUS_VALUE_MINIMUM_NOT_MET` | Compra abaixo do mínimo para usar bônus: refazer com `crm_discounts: 0` e seguir a venda |
+| `/bonus/submit` | `422 BONUS_NOT_ALLOWED_ON_PROMOTION` | Todos os itens em promoção e a marca não permite bônus neles: refazer com `crm_discounts: 0` |
+| `/bonus/submit` | `422 USO_ACIMA_DO_PERMITIDO` | `crm_discounts` acima do permitido e a marca recusa: refazer com até `valor_maximo` ou com `0` |
+| `/bonus/submit` | `422 USO_PARCIAL_NAO_PERMITIDO` | `ALL_OR_NOTHING`: refazer com o `valor_permitido` (créditos inteiros) ou com `0` |
 | `/sales/total` | `500` | Retry com backoff — seguro, a chave é o `internal_order_id` |
 
 Regras completas em [Erros e novas tentativas](../guia/erros).
@@ -526,6 +541,8 @@ Antes de ligar o fluxo no caixa real, confira:
 - [ ] `request_pin` respeitado em toda venda (sem "achar" pelo histórico)
 - [ ] `crm_discounts` refletindo exatamente o valor pago com bônus (`0` quando o cliente não usa)
 - [ ] `bonus_ids`, se enviados, completos
+- [ ] `bonus_usage_mode` lido em toda venda (valor desconhecido tratado como `TOTAL_WITH_LOSS`)
+- [ ] Os `422` do submit tratados: refazer sem bônus ou com o valor permitido, e seguir a venda
 - [ ] `bonus/campaigns` chamado com os **totals finais** (após o pagamento)
 - [ ] Opção "Não bonificar" (`id -1`) exibida ao vendedor, inclusive com o motivo
 - [ ] `/sales/total` sempre executado, com `generated_bonus_ids` correto

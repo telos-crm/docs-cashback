@@ -74,7 +74,7 @@ $response = Http::withToken($token)->post("$baseUrl/sales/cancel", [
 
 | Campo | Significado |
 | --- | --- |
-| `bonus_refunded` | Bônus usado nesta venda que **voltou ao saldo** do cliente. É `0` quando a venda não usou bônus ou quando nada pôde voltar (o bônus usado era de outro pedido já cancelado, ou venceu) |
+| `bonus_refunded` | Bônus usado nesta venda que **voltou ao saldo** do cliente. É `0` quando a venda não usou bônus ou quando nada pôde voltar (o bônus usado era de outro pedido já cancelado, ou venceu). Bônus vencido: por padrão continua vencido; a marca pode devolvê-lo como crédito novo, com prazo mínimo de uso, e aí ele entra no `bonus_refunded` |
 | `sms_canceled` | Quantidade de SMS vinculados à venda que foram cancelados |
 
 O cashback que a venda **gerou** é cancelado e não entra no

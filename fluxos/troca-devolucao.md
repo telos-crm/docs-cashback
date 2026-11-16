@@ -32,8 +32,25 @@ tenha terminado) e aplica a diferença:
 - **Mesmo valor:** nada muda no saldo; o pedido fica registrado com os itens
   novos.
 
+Na **devolução** (`RETURN`), além de recalcular o cashback gerado, a Telos
+devolve ao saldo do cliente o cashback que ele **usou** nos itens devolvidos
+(ver [Cashback usado na devolução](#cashback-usado-na-devolucao)).
+
 O valor mínimo de acúmulo da loja é reavaliado: se uma devolução deixa o
-pedido abaixo do mínimo, o cashback dele vai a zero.
+pedido abaixo do mínimo, o cashback dele vai a zero. A marca pode desligar
+essa reavaliação.
+
+::: info Regras que a marca escolhe
+Algumas regras da troca e da devolução são configuradas por marca na Telos. O
+ERP não muda nada no envio; a resposta já reflete a escolha:
+
+- redução maior que o disponível nos créditos do pedido: a loja assume
+  (padrão, em `bonus_absorbed`) ou a diferença sai dos outros créditos do
+  cliente (entra no `bonus_delta`);
+- validade do crédito complementar: contada do dia do ajuste (padrão) ou a
+  mesma do crédito original;
+- cashback usado na devolução: volta ao saldo (padrão) ou não volta.
+:::
 
 Por que o estado final: o ERP já sabe montar esse JSON (é o mesmo do
 `/bonus/submit`), duas trocas no mesmo pedido não acumulam erro e reenviar é
@@ -142,7 +159,7 @@ $response = Http::withToken($token)->post("$baseUrl/sales/adjust", [
 | `bonus_after` | Cashback que o pedido tem depois do ajuste |
 | `bonus_delta` | Quanto mudou nos créditos do cliente: positivo = crédito complementar; negativo = redução |
 | `bonus_absorbed` | Quanto a loja assume no pedido: a redução que não pôde ser aplicada porque o cashback já foi usado ou venceu. **Acumulado do pedido**, somando os ajustes anteriores |
-| `bonus_refunded` | Cashback usado devolvido ao saldo do cliente. Hoje sempre `0` |
+| `bonus_refunded` | Cashback usado que voltou ao saldo do cliente **neste ajuste**. Só na devolução (`RETURN`); `0` na troca |
 | `generated_bonus_id` | Crédito complementar, quando houver |
 | `warnings` | Avisos com `code` e `detail` que não impedem o ajuste. A lista pode ganhar códigos novos: ignore os que não conhece |
 
@@ -155,6 +172,8 @@ Sempre vale `bonus_after = bonus_before + bonus_delta − bonus_absorbed`.
 | `ORDER_WITHOUT_BONUS` | O pedido original não gerou cashback (ex.: abaixo do mínimo). O ajuste não gera cashback para ele |
 | `PAYLOAD_INCONSISTENT` | `totals` não fecham com `items`, como no `/bonus/submit` |
 | `CRM_DISCOUNTS_CHANGED` | Troca com `crm_discounts` diferente do original. O valor enviado é ignorado |
+| `CRM_DISCOUNTS_ABOVE_USED` | Devolução com `crm_discounts` maior que o cashback usado no pedido. Nada volta ao saldo |
+| `REFUND_DISCARDED` | Parte do cashback usado não voltou ao saldo porque o crédito de origem foi cancelado ou venceu. O `detail` diz quanto |
 | `BONUS_RULE_NOT_FOUND` | A campanha do pedido original não existe mais. O cashback não muda |
 | `MODE_NOT_SUPPORTED` | O programa da loja é de pontos. O ajuste não altera nada |
 
@@ -170,7 +189,54 @@ R$ 100,00).
 | Troca a maior | vestido 150 + calça | 290 | `bonus_delta` +5,00, crédito complementar |
 | Troca a menor (calça por 120) | blusa + calça 120 | 160 | `bonus_delta` −8,00 |
 | Troca a menor, com os R$ 24,00 já usados | blusa + calça 120 | 160 | `bonus_delta` 0, `bonus_absorbed` 8,00 |
-| Devolução da calça (`RETURN`) | blusa | 80 (`crm_discounts` 20) | 80 abaixo do mínimo → `bonus_delta` −24,00 |
+| Devolução da calça (`RETURN`) | blusa | 80 (`crm_discounts` 20) | 80 abaixo do mínimo → `bonus_delta` −24,00; `bonus_refunded` 40,00 |
+
+## Cashback usado na devolução
+
+Na devolução (`RETURN`), `totals.crm_discounts` é o cashback usado que
+**continua** no pedido: a parte dos itens que o cliente ficou. A diferença
+para o que o pedido usou volta ao saldo do cliente e vem em
+`bonus_refunded`.
+
+No exemplo acima, o pedido usou R$ 60,00 de cashback em R$ 300,00 de
+produtos. O cliente devolve a calça (R$ 200,00) e fica com a blusa: o ERP
+envia `crm_discounts` 20 (a parte da blusa) e R$ 40,00 voltam ao saldo.
+
+```json
+{
+    "status": true,
+    "message": "Order adjusted",
+    "data": {
+        "internal_order_id": "PED-9002",
+        "adjustment_id": "DEV-3310",
+        "type": "RETURN",
+        "bonus_before": 24.00,
+        "bonus_after": 0.00,
+        "bonus_delta": -24.00,
+        "bonus_absorbed": 0.00,
+        "bonus_refunded": 40.00,
+        "generated_bonus_id": null,
+        "adjusted_at": "2026-11-13T15:10:00-03:00",
+        "warnings": []
+    }
+}
+```
+
+- O cashback devolvido volta para os créditos de onde saiu, com a validade
+  deles.
+- Duas devoluções do mesmo pedido acumulam: em cada uma, envie o
+  `crm_discounts` que continua no pedido depois dela.
+- Crédito de origem **cancelado**: o valor não volta, e o aviso
+  `REFUND_DISCARDED` diz quanto.
+- Crédito de origem **vencido**: depende da marca. Por padrão continua
+  vencido (o valor não volta, com `REFUND_DISCARDED`); a marca pode preferir
+  devolver como crédito novo, com um prazo mínimo de uso, e aí o valor entra
+  no `bonus_refunded`.
+- Marcas no modo `TOTAL_WITH_LOSS` podem devolver também a parte perdida na
+  compra, na mesma proporção. Nesse caso `bonus_refunded` vem maior que a
+  diferença do `crm_discounts`.
+- `crm_discounts` maior que o usado no pedido: nada volta, com o aviso
+  `CRM_DISCOUNTS_ABOVE_USED`.
 
 ## Repetição e erros
 
@@ -194,5 +260,7 @@ repetição.
 - [ ] `adjustment_id` único por troca ou devolução, estável nos reenvios
 - [ ] `items` e `totals` com o pedido **inteiro** depois do ajuste
 - [ ] `crm_discounts` da troca igual ao do pedido original
+- [ ] `crm_discounts` da devolução com o cashback que **continua** no pedido (o resto volta ao saldo)
+- [ ] `bonus_refunded` exibido ao operador na devolução
 - [ ] Devolução de todos os itens vai para o `/sales/cancel`
 - [ ] `ADJUSTMENT_CONFLICT` tratado como erro, não como sucesso
