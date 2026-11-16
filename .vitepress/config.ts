@@ -41,6 +41,7 @@ export default defineConfig({
         items: [
           { text: 'Introdução e conceitos', link: '/guia/introducao' },
           { text: 'Primeiros passos', link: '/guia/primeiros-passos' },
+          { text: 'Regras de uso do saldo', link: '/guia/uso-do-saldo' },
           { text: 'Erros e novas tentativas', link: '/guia/erros' },
           { text: 'Changelog', link: '/guia/changelog' },
         ],

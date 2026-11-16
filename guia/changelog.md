@@ -4,6 +4,35 @@ Mudanças **visíveis ao integrador**: campos, comportamento e erros. A versão
 é a mesma da [Referência da API](../reference). Mudanças que exigem ajuste
 no ERP são anunciadas aqui com antecedência.
 
+## 1.3.0 — novembro/2026
+
+- `POST /bonus/available`: novo campo `bonus_usage_mode` com a regra de uso
+  do saldo da marca no canal da loja: `TOTAL_WITH_LOSS`, `PARTIAL` ou
+  `ALL_OR_NOTHING`. Trate valores desconhecidos como `TOTAL_WITH_LOSS`. Ver
+  [Regras de uso do saldo](./uso-do-saldo).
+- `POST /bonus/submit` com `PARTIAL`: só o valor usado sai do saldo; o resto
+  fica para a próxima compra, com a mesma validade.
+- `POST /bonus/submit` com `ALL_OR_NOTHING`: só créditos inteiros que cabem
+  no limite. `crm_discounts` que não fecha com eles recebe
+  `422 USO_PARCIAL_NAO_PERMITIDO` (com `valor_permitido`). No
+  `/bonus/available`, `bonus_ids` traz só esses créditos.
+- `POST /bonus/submit`: o limite de uso passa a ser calculado sobre a mesma
+  base do `/bonus/available` (sem os itens em promoção, quando a marca não
+  permite cashback neles). Antes o submit usava o subtotal inteiro. Se nenhum
+  item aceita cashback e `crm_discounts > 0`, a resposta é
+  `422 BONUS_NOT_ALLOWED_ON_PROMOTION`.
+- `POST /bonus/submit`: a marca pode recusar `crm_discounts` acima do
+  permitido em vez de limitar: `422 USO_ACIMA_DO_PERMITIDO` (com
+  `valor_maximo`). O padrão continua sendo limitar.
+- `POST /sales/adjust` com `RETURN`: o cashback usado nos itens devolvidos
+  volta ao saldo do cliente em `bonus_refunded`. Avisos novos
+  `CRM_DISCOUNTS_ABOVE_USED` e `REFUND_DISCARDED`. Ver
+  [Troca e devolução parcial](../fluxos/troca-devolucao).
+- `POST /sales/cancel` e `/sales/adjust`: cashback usado que volta para um
+  crédito já vencido segue a regra da marca: continua vencido (padrão) ou
+  volta como crédito novo, com prazo mínimo de uso, e entra no
+  `bonus_refunded`.
+
 ## 1.2.0 — novembro/2026
 
 - Novo `POST /sales/adjust`: ajusta o cashback de um pedido já enviado
@@ -35,7 +64,3 @@ Sujeito a alteração; cada item entra aqui com data antes de valer.
 
 - Validação do header `Request-Hash` nas rotas de escrita, com anúncio prévio
   e ativação gradual por credencial.
-- `/bonus/available` informando a regra de uso de saldo da marca (uso total
-  ou uso parcial com saldo remanescente).
-- `/sales/adjust` em devolução (`RETURN`) devolvendo ao saldo o cashback
-  usado nos itens devolvidos (`bonus_refunded`).

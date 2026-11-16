@@ -23,11 +23,12 @@ cliente desiste e a **consulta de saldo** para os atendimentos fora do caixa.
    (condição de pagamento, cupom, frete). Promoção de produto **cadastrada**
    não entra aí: ela vira `value_of ≠ value_per` no item.
 
-3. **Usou, consumiu tudo.** Na regra de uso atual, usar o bônus consome
-   **todos** os bônus usáveis do cliente naquela compra: não sobra saldo. A
-   parte que excede o limite da compra é perdida, e o `/bonus/available` já
-   avisa o operador disso na pergunta. Os `bonus_ids` são opcionais; se
-   enviar, mande **todos** os recebidos no `/bonus/available`.
+3. **`bonus_usage_mode` diz o que acontece com o resto do saldo.** Cada
+   marca escolhe: usar consome tudo e o excedente é perdido
+   (`TOTAL_WITH_LOSS`), o resto fica no saldo (`PARTIAL`) ou só créditos
+   inteiros (`ALL_OR_NOTHING`). Ver [Regras de uso do saldo](../guia/uso-do-saldo).
+   Os `bonus_ids` são opcionais; se enviar, mande **todos** os recebidos no
+   `/bonus/available`.
 
 4. **`/sales/total` nunca é pulado** — mesmo sem bônus. Sem ele a venda não
    existe na Telos e o cancelamento fica órfão.
